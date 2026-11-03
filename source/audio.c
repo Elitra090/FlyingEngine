@@ -2,75 +2,84 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <filesystem.h>
+#include <maxmod9.h>
+#include <string.h>
 #include "audio.h"
 
-static int id = -1;
+#define FIFO_MAXMOD 256
 
-int Audio_init(AudioTrack *t) {
-    soundEnable();
-    if (nitroFSInit(NULL) == false) {
-        return 0;
-    }
-    return 1;
-}
+static FILE *song;
+static bool paused;
+static mm_stream stream;
 
-int Audio_load(AudioTrack *t, const char *path, int freq) {
-    FILE* s = fopen(path, "rb");
-    if (s == NULL) {
-            return 0;
-    }
-    fseek(s, 0, SEEK_END);
-    t->size = ftell(s);
-    fseek(s, 0, SEEK_SET);
-    t->data = malloc(t->size);
-    if (t->data == NULL) {
-        fclose(s);
-        return 0;
-    }
-    u32 read = fread(t->data, 1, t->size, s);
-    if (read != t->size) {
-        free(t->data);
-        t->data = NULL;
-        fclose(s);
-        return 0;
-    }
-    DC_FlushRange(t->data, t->size);
-    t->freq = freq;
-    fclose(s);
-    return 1;
-}
+mm_word fill_stream(mm_word length, mm_addr dest, mm_stream_formats format)
+{
+    if (paused == true) {
+        memset(dest, 0, length * 2);
+        return length;
+    } else {
+        size_t bytes_leidos = fread(dest, 1, length * 2, song);
 
-void Audio_start(AudioTrack *t) {
-    id = soundPlaySample(t->data, SoundFormat_ADPCM, t->size, t->freq, 127, 64, false, 0);
-}
-
-void Audio_free(AudioTrack *t) {
-    if (t->data != NULL) {
-        if (id >= 0) {
-            soundKill(id);
-            id = -1;
+        if (bytes_leidos < length * 2) {
+            memset((char*)dest + bytes_leidos, 0, (length * 2) - bytes_leidos);
         }
-        free(t->data);
-        t->data = NULL;
-        t->size = 0; 
     }
+
+    return length;
+}
+
+int Audio_init() {
+    if (!nitroFSInit(NULL)) {
+        return 0;
+    }
+    mm_ds_system sys;
+    sys.mod_count = 0;
+    sys.samp_count = 0;
+    sys.mem_bank = 0;
+    sys.fifo_channel = FIFO_MAXMOD;
+    mmInit(&sys);
+    return 1;
+}
+
+int Audio_open(const char *path) {
+    song = fopen(path, "rb");
+    if (song == NULL) {
+        return 0;
+    }
+    return 1;
+}
+
+void Audio_start() {
+
+        stream.sampling_rate = 22050;           // 16KHZ
+        stream.buffer_length = 8192;             // Should be adequate
+        stream.callback = fill_stream;     // Give stereo filling routine
+        stream.format = MM_STREAM_16BIT_MONO; // Select format
+        stream.timer = MM_TIMER1;               // Use timer 0
+        stream.manual = 1;                      // Auto filling
+
+        // open the stream
+        mmStreamOpen(&stream);
+}
+
+void Audio_update() {
+    mmStreamUpdate();
 }
 
 void Audio_pause() {
-    if (id >= 0) {
-        soundPause(id);
-    }
+    paused = true;
 }
+
 void Audio_resume() {
-    if (id >= 0) {
-        soundResume(id);
-    }
+    paused = false;
 }
 
-
-
-
-
+void Audio_close() {
+    mmStreamClose();
+    if (song != NULL) {
+        fclose(song);
+    }
+}
 
 
 

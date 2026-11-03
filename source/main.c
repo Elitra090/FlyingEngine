@@ -4,8 +4,37 @@
 #include "chart.h"
 #include "monochrome.h"
 #include "audio.h"
+#include <malloc.h>
+#include <unistd.h>
 
 #define STRUM_Y  10
+
+
+
+void debug_imprimir_ram_real() {
+    struct mallinfo mi = mallinfo();
+
+    // sbrk(0) obtiene el puntero al límite superior actual del heap
+    char *limite_heap = (char*)sbrk(0);
+
+    // Límite físico real de la memoria RAM de la NDS original (4MB)
+    // Inicia en 0x02000000 + 4MB (0x00400000) = 0x02400000
+    char *fin_ram = (char*)0x02400000;
+
+    // Calculamos los bytes vírgenes hasta el final del chip de RAM
+    int ram_virgen = fin_ram - limite_heap;
+
+    int ram_libre_real = ram_virgen + mi.fordblks;
+    int ram_estatica = (4096 * 1024) - ram_libre_real - mi.uordblks;
+
+    iprintf("\x1b[10;0H");
+    // Imprimir saltando algunas líneas para no pisar tus otras variables de ritmo
+    iprintf("\n\n\n\n\n\n\n\n");
+    iprintf("Sistema/Juego:  %d kb   \n", ram_estatica / 1024);
+    iprintf("RAM Usada:      %d kb   \n", mi.uordblks / 1024);
+    iprintf("RAM Libre Real: %d kb   \n", ram_libre_real / 1024);
+    iprintf("RAM Total NDS:  4096 kb \n");
+}
 
 int main(void) {
     Conductor cond;
@@ -35,13 +64,18 @@ int main(void) {
     int lastJudge = -2;
     int totalMisses = 0;
     Conductor_init(&cond, CHART_BPM);
-    Audio_init();
+
     Chart_init(&chart);
     Chart_load(&chart);
+
+    if (!Audio_init()) {
+        printf("\x1b[8;0H error 1");
+    }
     // finish init
 
 
 
+    Audio_open("nitro:/songs/song.raw");
     Audio_start();
     Conductor_start(&cond);
 
@@ -52,6 +86,7 @@ int main(void) {
         u32 down = keysDown();
 
         Conductor_update(&cond);
+        Audio_update();
         Chart_update(&chart, cond.songPosition);
         totalMisses += Chart_checkMiss(&chart, cond.songPosition);
 
@@ -66,7 +101,7 @@ int main(void) {
             oamSet(&oamMain, i, 64 + i * 24, 10, 0, i, SpriteSize_16x16, SpriteColorFormat_16Color, squareGfx, -1, false, false, false, false, false);
         }
         //
-
+        debug_imprimir_ram_real();
         printf("\x1b[0;0H%d ms      ", cond.songPosition);
         printf("\x1b[1;0Hnotas: %d      ", chart.noteCount);
         printf("\x1b[2;0HnextSpawn: %d      ", chart.nextSpawn);
@@ -95,8 +130,10 @@ int main(void) {
         if (down & KEY_START) {
             if (cond.state == cond_playing) {
                 Conductor_pause(&cond);
+                Audio_pause();
             } else {
                 Conductor_resume(&cond);
+                Audio_resume();
             }
         }
     }
