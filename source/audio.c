@@ -51,12 +51,12 @@ int Audio_open(const char *path) {
 
 void Audio_start() {
 
-        stream.sampling_rate = 22050;           // 16KHZ
-        stream.buffer_length = 8192;             // Should be adequate
-        stream.callback = fill_stream;     // Give stereo filling routine
-        stream.format = MM_STREAM_16BIT_MONO; // Select format
-        stream.timer = MM_TIMER1;               // Use timer 0
-        stream.manual = 1;                      // Auto filling
+        stream.sampling_rate = 22050;
+        stream.buffer_length = 8192;
+        stream.callback = fill_stream;
+        stream.format = MM_STREAM_16BIT_MONO;
+        stream.timer = MM_TIMER1;
+        stream.manual = 1;
 
         // open the stream
         mmStreamOpen(&stream);

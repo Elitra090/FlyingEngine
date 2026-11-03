@@ -36,5 +36,8 @@ void Conductor_pause(Conductor *c) {
 }
 
 void Conductor_resume(Conductor *c) {
-    if (c->state == cond_paused) {c->state = cond_playing;}
+    if (c->state == cond_paused) {
+        timerElapsed(0);
+        c->state = cond_playing;
+    }
 }

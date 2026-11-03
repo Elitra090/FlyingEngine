@@ -52,7 +52,12 @@ int Chart_hit (Chart *ch, int column, int songPosition) {
         }
     }
     if (best == -1 || bestDiff > SAFE_WINDOW) {return -1;} else {
-        ch->notes[best].noteState = note_hit;
+        if (ch->notes[best].sustainLength > 0) {
+            ch->notes[best].noteState = note_holding;
+        } else {
+            ch->notes[best].noteState = note_hit;
+        }
+
         if (bestDiff <= SICK_WINDOW) {return judge_sick;}
         else if (bestDiff <= GOOD_WINDOW) {return judge_good;}
         else if (bestDiff <= BAD_WINDOW) {return judge_bad;}
@@ -75,4 +80,19 @@ void Chart_load(Chart *ch) {
     for (int i = 0; i < CHART_NOTE_COUNT; i++) {
         Chart_addNote(ch, chartData[i].strumTime, chartData[i].sustainLength, chartData[i].column, chartData[i].type, chartData[i].mustHit);
     }
+}
+
+int Chart_updateHolds(Chart *ch, int songPosition, int mask) {
+    int missed = 0;
+    for (int i = 0; i <= ch->nextSpawn - 1; i++) {
+        if (ch->notes[i].noteState == note_holding) {
+            if (songPosition >= ch->notes[i].strumTime + ch->notes[i].sustainLength) {
+                ch->notes[i].noteState = note_hit;
+            } else if (!(mask & (1 << ch->notes[i].column))) {
+                ch->notes[i].noteState = note_missed;
+                missed++;
+            }
+        }
+    }
+    return missed;
 }

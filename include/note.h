@@ -11,7 +11,8 @@ typedef enum {
     note_waiting,
     note_active,
     note_hit,
-    note_missed
+    note_missed,
+    note_holding
 } NoteState;
 
 typedef enum {
