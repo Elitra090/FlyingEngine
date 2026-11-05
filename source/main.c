@@ -1,8 +1,8 @@
 #include <nds.h>
 #include <stdio.h>
+#include <filesystem.h>
 #include "conductor.h"
 #include "chart.h"
-#include "monochrome.h"
 #include "audio.h"
 #include <malloc.h>
 #include <unistd.h>
@@ -40,6 +40,7 @@ int main(void) {
     Conductor cond;
     static Chart chart;
     consoleDemoInit();
+    nitroFSInit(NULL);
 
     // init
     u32 keys[4] = {KEY_LEFT, KEY_DOWN, KEY_X, KEY_A};
@@ -65,10 +66,10 @@ int main(void) {
 
     int lastJudge = -2;
     int totalMisses = 0;
-    Conductor_init(&cond, CHART_BPM);
+    Conductor_init(&cond, 120);
 
     Chart_init(&chart);
-    Chart_load(&chart);
+    Chart_load(&chart, "nitro:/data/songs/bopeebo/bopeebo-hard.chartbin");
 
     if (!Audio_init()) {
         printf("\x1b[8;0H error 1");

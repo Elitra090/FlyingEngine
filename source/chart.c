@@ -1,7 +1,6 @@
 #include "chart.h"
 #include <stdlib.h>
-
-#include "monochrome.h"
+#include <stdio.h>
 
 void Chart_init(Chart *c) {
     c->noteCount = 0;
@@ -76,11 +75,41 @@ int Chart_checkMiss(Chart *ch, int songPosition) {
     return missed;
 }
 
-void Chart_load(Chart *ch) {
-    for (int i = 0; i < CHART_NOTE_COUNT; i++) {
-        Chart_addNote(ch, chartData[i].strumTime, chartData[i].sustainLength, chartData[i].column, chartData[i].type, chartData[i].mustHit);
+
+
+int Chart_load(Chart* ch, const char* filepath) {
+    FILE* file = fopen(filepath, "rb");
+    if (!file) return 0; // Error al abrir el archivo
+
+    int totalNotes = 0;
+    if (fread(&totalNotes, sizeof(int), 1, file) != 1) {
+        fclose(file);
+        return 0;
     }
+
+    // 1. Limpiar el estado del chart
+    Chart_init(ch);
+
+    // 2. Leer cada nota del binario e insertarla con Chart_addNote
+    ChartNoteData rawNote;
+    for (int i = 0; i < totalNotes; i++) {
+        if (fread(&rawNote, sizeof(ChartNoteData), 1, file) == 1) {
+            // Chart_addNote se encarga de rellenar noteState = note_waiting
+            // y alinear los tipos de datos en ch->notes
+            if (!Chart_addNote(ch, rawNote.strumTime, rawNote.sustainLength,
+                rawNote.column, rawNote.type, rawNote.mustHit)) {
+                break; // Se alcanzó MAX_NOTES
+            }
+        }
+        else {
+            break; // Error de lectura prematuro
+        }
+    }
+
+    fclose(file);
+    return 1;
 }
+
 
 int Chart_updateHolds(Chart *ch, int songPosition, int mask) {
     int missed = 0;
